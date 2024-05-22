@@ -13,9 +13,12 @@ def main():
     nn.add_layer(2)  # Warstwa wyjściowa z 2 neuronami
 
     # Trening
+    print("\nTrening sieci neuronowej:")
     epochs = 1000
     learning_rate = 0.01
     nn.train(x_train, y_train, epochs, learning_rate)
+
+    print("\n\nTest sieci neuronowej:")
 
     # Test sieci neuronowej
     print(nn.forward(np.array([0, 0])))

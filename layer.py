@@ -6,8 +6,8 @@ class Layer:
         self.output_size = output_size
         self.function = function
         self.derivative = derivative
-        self.weights = np.random.randn(input_size, output_size) * 0.1
-        self.biases = np.random.randn(output_size) * 0.1
+        self.weights = np.random.randn(input_size, output_size)
+        self.biases = np.random.randn(output_size)
         self.last_input = None
         self.last_output = None
 
@@ -20,7 +20,9 @@ class Layer:
     def backward(self, output_error, learning_rate):
         delta = output_error * self.derivative(self.last_output)
         input_error = np.dot(delta, self.weights.T)
-        weights_gradient = np.dot(self.last_input.T, delta)
-        self.weights -= learning_rate * weights_gradient
-        self.biases -= learning_rate * delta.mean(axis=0)
+        delta = delta.reshape(-1, 1)  # Zmiana delta na wektor kolumnowy
+        last_input = self.last_input.reshape(-1, 1)  # Zmiana self.last_input na wektor kolumnowy
+        weights_gradient = np.dot(last_input, delta.T)
+        self.weights += learning_rate * weights_gradient
+        self.biases += learning_rate * np.sum(delta, axis=0)
         return input_error
