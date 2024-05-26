@@ -1,28 +1,28 @@
+from neuron import Neuron
 import numpy as np
 
 class Layer:
-    def __init__(self, input_size, output_size, function, derivative):
-        self.input_size = input_size
-        self.output_size = output_size
-        self.function = function
-        self.derivative = derivative
-        self.weights = np.random.randn(input_size, output_size)
-        self.biases = np.random.randn(output_size)
-        self.last_input = None
-        self.last_output = None
+    def __init__(self, num_neurons, input_size, include_bias=True):
+        self.neurons = [Neuron(input_size, include_bias) for _ in range(num_neurons)]
+        self.output = np.zeros(num_neurons)
 
-    def forward(self, input_data):
-        self.last_input = input_data
-        net_input = np.dot(input_data, self.weights) + self.biases
-        self.last_output = self.function(net_input)
-        return self.last_output
+    def forward(self, input_values):
+        self.output = np.array([neuron.update(input_values) for neuron in self.neurons])
+        return self.output
 
-    def backward(self, output_error, learning_rate):
-        delta = output_error * self.derivative(self.last_output)
-        input_error = np.dot(delta, self.weights.T)
-        delta = delta.reshape(-1, 1)  # Zmiana delta na wektor kolumnowy
-        last_input = self.last_input.reshape(-1, 1)  # Zmiana self.last_input na wektor kolumnowy
-        weights_gradient = np.dot(last_input, delta.T)
-        self.weights += learning_rate * weights_gradient
-        self.biases += learning_rate * np.sum(delta, axis=0)
-        return input_error
+    def backward(self, output_error, learning_rate, momentum, prev_weight_grads, prev_bias_grads):
+        weight_grads = []
+        bias_grads = []
+        for i, neuron in enumerate(self.neurons):
+            error_signal = output_error[i] * neuron.calculate_output_derivative()
+            input_error = error_signal * neuron.weights
+            weight_grads.append(error_signal * neuron.input_values)
+            bias_grads.append(error_signal)
+            neuron.weights -= learning_rate * weight_grads[-1]
+            if momentum and prev_weight_grads:
+                neuron.weights -= momentum * learning_rate * prev_weight_grads[i]
+            if neuron.include_bias:
+                neuron.bias -= learning_rate * bias_grads[-1]
+                if momentum and prev_bias_grads:
+                    neuron.bias -= momentum * learning_rate * prev_bias_grads[i]
+        return np.sum(input_error, axis=0), weight_grads, bias_grads
