@@ -1,38 +1,31 @@
-from layer import Layer
-import functions
-import numpy as np
-
 class NeuralNetwork:
     def __init__(self):
         self.layers = []
-        self.input_size = None
+        self.loss = None
+        self.optimizer = None
 
-    def add_input_layer(self, input_size):
-        self.input_size = input_size
-
-    def add_layer(self, output_size):
-        input_size = self.layers[-1].output_size if self.layers else self.input_size
-        if input_size is None:
-            raise ValueError("Input size must be set before adding layers.")
-        layer = Layer(input_size, output_size, functions.sigmoid, functions.sigmoid_derivative)
+    def add(self, layer):
         self.layers.append(layer)
 
-    def forward(self, input_data):
+    def set(self, *, loss, optimizer):
+        self.loss = loss
+        self.optimizer = optimizer
+
+    def forward(self, X):
+        inputs = X
         for layer in self.layers:
-            input_data = layer.forward(input_data)
-        return input_data
+            layer.forward(inputs)
+            inputs = layer.output
+        return inputs
 
-    def backward(self, output_error, learning_rate):
+    def backward(self, output, y):
+        self.loss.backward(output, y)
+        deriv_values = self.loss.deriv_inputs
+
         for layer in reversed(self.layers):
-            output_error = layer.backward(output_error, learning_rate)
+            layer.backward(deriv_values)
+            deriv_values = layer.deriv_inputs
 
-    def train(self, x_train, y_train, epochs, learning_rate):
-        for epoch in range(epochs):
-            for x, y in zip(x_train, y_train):
-                output = self.forward(x)
-                output_error = y - output
-                self.backward(output_error, learning_rate)
-
-            if epoch % 100 == 0:
-                loss = np.mean(np.square(y_train - self.forward(x_train)))
-                print(f"Epoch: {epoch}, Loss: {loss}")
+    def update_params(self):
+        for layer in self.layers:
+            self.optimizer.update_params(layer)
