@@ -31,22 +31,18 @@ def prepare_data(data):
 def main():
     np.random.seed(25)
 
-    # Wczytwanie i przygotowanie danych treningowych
     train_data = load_data('train_data.xlsx')
     X_train_data, y_train_data = prepare_data(train_data)
 
-    # Wczytwanie i przygotowanie danych testowych
     test_data = load_data('test_data.xlsx')
     X_test_data, y_test_data = prepare_data(test_data)
 
-    # Podział danych na batche
     batch_size = 128
     train_data_batches = split_to_batches(X_train_data, batch_size)
     train_ref_batches = split_to_batches(y_train_data, batch_size)
     test_data_batches = split_to_batches(X_test_data, batch_size)
     test_ref_batches = split_to_batches(y_test_data, batch_size)
 
-    # Inicjalizacja sieci neuronowej
     network = NeuralNetwork()
     network.add(Layer(2, 16))  # Pierwsza warstwa ukryta
     network.add(ActivationReLU())
@@ -56,7 +52,6 @@ def main():
     network.add(ActivationLinear())
     network.set(loss=LossMSE(), optimizer=OptimizerSGD())
 
-    # Calculate initial training loss
     starting_train_loss = 0
     for data_batch, ref_batch in zip(train_data_batches, train_ref_batches):
         output = network.forward(data_batch)
@@ -72,8 +67,9 @@ def main():
         if not math.isnan(loss):
             starting_test_loss += loss
 
-    # Train the network
     epochs = 300
+    train_losses = []
+    test_losses = []
     for iteration in range(1, epochs + 1):
         current_loss = 0
         for data_batch, ref_batch in zip(train_data_batches, train_ref_batches):
@@ -85,10 +81,18 @@ def main():
             network.backward(output, ref_batch)
             network.update_params()
 
+        train_losses.append(current_loss)
+
         if iteration % 10 == 0:
             print(f'Iteration: {iteration}   |   Loss: {current_loss:.5f}')
+            test_loss = 0
+            for data_batch, ref_batch in zip(test_data_batches, test_ref_batches):
+                output = network.forward(data_batch)
+                loss = network.loss.calculate(output, ref_batch)
+                if not math.isnan(loss):
+                    test_loss += loss
+            test_losses.append(test_loss)
 
-    # Evaluate the network on test data
     test_result_loss = 0
     results = []
     refs = []
@@ -102,6 +106,30 @@ def main():
 
     print(f"\nStarting test loss: {starting_test_loss}")
     print(f"Test loss after forward prop: {test_result_loss}")
+
+    results_array = np.concatenate(results)
+    refs_array = np.concatenate(refs)
+    result_df = pd.DataFrame(results_array, columns=['predictedX', 'predictedY'])
+    refs_df = pd.DataFrame(refs_array, columns=['realX', 'realY'])
+    final_df = pd.concat([result_df, refs_df], axis=1)
+
+    for column in final_df.columns:
+        final_df[column] = (final_df[column] * 10000) - 500
+
+    final_df.to_excel("result_data_hidden=X_verY.xlsx", index=False) # X - liczba warstw ukrytych, Y - wariant sieci
+    print("Results saved to result_data.xlsx")
+
+    train_loss_df = pd.DataFrame({
+        'epoch': list(range(1, epochs + 1)),
+        'loss': train_losses
+    })
+    test_loss_df = pd.DataFrame({
+        'epoch': list(range(1, epochs + 1, 10)),
+        'loss': test_losses
+    })
+    with pd.ExcelWriter('losses.xlsx') as writer:
+        train_loss_df.to_excel(writer, sheet_name='training_losses', index=False)
+        test_loss_df.to_excel(writer, sheet_name='test_losses', index=False)
 
 if __name__ == '__main__':
     main()
